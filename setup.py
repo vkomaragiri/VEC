@@ -1,3 +1,5 @@
+#author: Vasundhara Komaragiri
+
 from distutils.core import Extension, setup
 from Cython.Build import cythonize
 import numpy
