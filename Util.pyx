@@ -41,33 +41,6 @@ cpdef getProb(cnp.ndarray[int, ndim=2] data, int x, int x_d, cnp.ndarray[double,
     cx /= np.sum(cx)
     return cx
 
-
-@cython.boundscheck(False)  # Deactivate bounds checking
-@cython.wraparound(False)   # Deactivate negative indexing.
-cpdef list computeMI(object[:] variables, cnp.ndarray[int, ndim=2] data, cnp.ndarray[double, ndim=1] weights, double laplace):
-    cdef int i, j, nvars, xu, xv 
-    cdef list px, pxy 
-    cdef object u, v
-    nvars = variables.shape[0]
-    px = [None]*nvars
-    for i in range(nvars):
-        u = variables[i]
-        px[i] = getProb(data, i, u.d, weights, laplace)
-    cdef cnp.ndarray[double, ndim = 2] mi = np.zeros((nvars, nvars), dtype=float)
-    pxy = [None]*nvars
-    for i in range(nvars):
-        u = variables[i]
-        pxy[i] = [None]*nvars
-        for j in range(nvars):
-            v = variables[j]
-            pxy[i][j] = getPairwiseProb(data, i, j, u.d, v.d, weights, laplace)
-            if i == j:
-                continue
-            for xu in range(u.d):
-                for xv in range(v.d):
-                    mi[i][j] += pxy[i][j][xu][xv]*(np.log(pxy[i][j][xu][xv])-np.log(px[i][xu])-np.log(px[j][xv]))
-    return [mi, pxy, px]
-
 @cython.boundscheck(False)  # Deactivate bounds checking
 @cython.wraparound(False)   # Deactivate negative indexing.
 cpdef int getAddr(object[:] variables):
@@ -93,40 +66,6 @@ cpdef int getDomainSize(object[:] variables):
     for i in range(variables.shape[0]):
         d *= variables[i].d
     return d 
-
-@cython.boundscheck(False)  # Deactivate bounds checking
-@cython.wraparound(False)   # Deactivate negative indexing.
-cpdef list getDirectedST(cnp.ndarray[double, ndim=2] adj_mat):
-    cdef int i, j
-    cdef cnp.ndarray[double, ndim=1] wts
-    cdef list children, weights, temp_children, temp_parents, parents
-    cdef list component_vertices
-
-    g = Graph.Weighted_Adjacency(adj_mat)
-    wts = adj_mat[adj_mat!=0].flatten()
-    tree = g.spanning_tree(weights=wts)    
-    tree.to_undirected()
-    children = []
-    parents = []
-    temp_children = []
-    temp_parents = []
-    components = tree.connected_components()
-    component_vertices = list(components)
-    if(len(component_vertices)) == 1:
-        children, parents = tree.dfs(vid=0)
-        return [children, parents]
-    subgraphs = components.subgraphs()
-    for i in range(len(component_vertices)):  
-        temp_children, temp_parents = subgraphs[i].dfs(vid = subgraphs[i].vs.indices[0])
-        for j in range(len(temp_children)):
-            if temp_parents[j] == -1:
-                parents.append(-1)
-            else:
-                parents.append(component_vertices[i][temp_parents[j]])
-            children.append(component_vertices[i][temp_children[j]])
-        #children.extend([component_vertices[i][temp_children[j]] for j in range(len(temp_children))])
-        #parents.extend([component_vertices[i][temp_parents[j]] for j in range(len(temp_parents))])
-    return [children, parents]
 
 @cython.boundscheck(False)  # Deactivate bounds checking
 @cython.wraparound(False)   # Deactivate negative indexing.
@@ -393,78 +332,5 @@ cpdef double computeEntropy(list px):
     return entropy 
 
 
-@cython.boundscheck(False)  # Deactivate bounds checking
-@cython.wraparound(False)   # Deactivate negative indexing.
-cpdef int[:, :] getMinFillOrderWithTreewidth(object[:] functions, int nvars):
-    cdef cnp.ndarray[int, ndim=2] order
-    cdef cnp.ndarray[int, ndim=2] adj_mat
-    cdef int nfunctions = np.asarray(functions, dtype=object).shape[0], i, j, k, n, min_ind, min_fill, flag = 0, cur_fill, treewidth
-    cdef int[:] temp_vars 
-    cdef cnp.ndarray[int, ndim=1] triangulate_vertices
-    order = -1*np.ones((2, nvars), dtype=np.int32)
-    adj_mat = np.zeros((nvars, nvars), dtype=np.int32)
-    for i in range(nfunctions):
-        temp_vars = functions[i].getVarIDs()
-        for j in range(np.asarray(temp_vars, dtype=np.int32).shape[0]):
-            for k in range(j+1, np.asarray(temp_vars, dtype=np.int32).shape[0]):
-                adj_mat[temp_vars[j]][temp_vars[k]] = 1
-                adj_mat[temp_vars[k]][temp_vars[j]] = 1
-    for n in range(nvars):
-        min_fill = nvars 
-        min_ind = -1
-        for i in range(nvars):
-            if i not in order[0, :]:
-                cur_fill = 0
-                triangulate_vertices = np.array([], dtype=np.int32)
-                for j in range(nvars):
-                    if j not in order[0, :]:
-                        if adj_mat[i][j] == 1:    
-                            triangulate_vertices = np.hstack([triangulate_vertices, np.array([j], dtype=np.int32)])
-                for j in range(triangulate_vertices.shape[0]):
-                    for k in range(j+1, triangulate_vertices.shape[0]):
-                        if adj_mat[triangulate_vertices[j]][triangulate_vertices[k]] != 1:
-                            cur_fill += 1
-                if min_fill > cur_fill:
-                    min_ind = i 
-                    min_fill = cur_fill
-        order[0][n] = min_ind
-        triangulate_vertices = np.array([], dtype=np.int32)
-        for j in range(nvars):
-            if adj_mat[min_ind][j] == 1:
-                if j not in order[0, :]:
-                    triangulate_vertices = np.hstack([triangulate_vertices, np.array([j], dtype=np.int32)])
-        #print(min_ind, min_fill, triangulate_vertices)
-        for j in range(triangulate_vertices.shape[0]):
-            adj_mat[min_ind][j] = 0
-            adj_mat[j][min_ind] = 0
-        for j in range(triangulate_vertices.shape[0]):
-            for k in range(j+1, triangulate_vertices.shape[0]):
-                adj_mat[triangulate_vertices[j]][triangulate_vertices[k]] = 1
-                adj_mat[triangulate_vertices[k]][triangulate_vertices[j]] = 1
-        order[1][n] = triangulate_vertices.shape[0]
-    return order
-
-@cython.boundscheck(False)  # Deactivate bounds checking
-@cython.wraparound(False)   # Deactivate negative indexing.
-cpdef list localDataUtil(double[:, :] data, int nvars):
-    cdef cnp.ndarray[object, ndim=1] variables, functions, vars 
-    cdef int i, j, d = 2
-    cdef object var, func 
-    cdef cnp.ndarray[double, ndim=1] potential 
-
-    variables = np.array([], dtype=object)
-    for i in range(nvars):
-        var = Variable(i, d)
-        variables = np.hstack([variables, var])
-    
-    functions = np.array([], dtype=object)
-    for i in range(data.shape[0]):
-        potential = np.asarray(data[i][2:])
-        vars = variables[np.asarray(data[i, :2], dtype=np.int32)]
-        func = Function()
-        func.setVars(vars)
-        func.setPotential(potential)
-        functions = np.hstack([functions, func])
-    return [variables, functions]
 
 
