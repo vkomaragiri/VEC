@@ -9,7 +9,7 @@ from numpy import logaddexp
 from Variable import Variable
 from Function import Function
 from MN import MN
-from Util import getMinDegreeOrder, getMinFillOrder, getMinFillOrderWithTreewidth
+from Util import getMinDegreeOrder, getMinFillOrder
 from Util import multiplyBucket, elimVarBucket
 from Util import printVars, setAddr, getAddr
 
