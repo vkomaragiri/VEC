@@ -7,7 +7,7 @@ import sys
 
 from Variable import Variable
 from Function import Function
-from Util import setAddr, getAddr, getDomainSize, computeMI, getDirectedST, getProb, getPairwiseProb, printVars
+from Util import setAddr, getAddr, getDomainSize, getProb, getPairwiseProb, printVars
 from Util import multiplyBucket, elimVarBucket
 
 @cython.boundscheck(False)  # Deactivate bounds checking
