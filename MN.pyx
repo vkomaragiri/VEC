@@ -115,46 +115,6 @@ cdef class MN:
             potentials_ = np.array(line.split(" "), dtype=float)
             functions[i].setPotential(potentials_[1:])
         self.functions = functions
-        
-    cpdef void read2(self, infilename):
-        cdef int nfunctions, i, j, n
-        cdef double k
-        cdef cnp.ndarray[int, ndim=1] dsize 
-        cdef object var
-        cdef cnp.ndarray[object, ndim=1] variables, functions, func_vars
-
-        fr = open(infilename, "r")
-        if "MARKOV" not in fr.readline():
-            print("Invalid input")
-            sys.exit(0)
-        line = fr.readline()
-        self.nvars = int(line[:(len(line)-1)])
-        
-        variables = np.zeros(self.nvars, dtype=object)
-        line = fr.readline()
-        dsize = np.array(line.split(" "), dtype=np.int32)
-        for i in range(self.nvars):
-            variables[i] = Variable(i, dsize[i])
-        self.variables = variables 
-        #fr.readline()
-        line = fr.readline()
-        line = line[:(len(line)-1)]
-        nfunctions = np.int32(line)
-        functions = np.zeros(nfunctions, dtype=object)
-        for i in range(nfunctions):
-            func = Function()
-            line = fr.readline()
-            vars_ = np.array(line.split(" "), dtype=np.int32)
-            func_vars = variables[vars_[1:]]
-            func.setVars(func_vars)
-            functions[i] = func
-        for i in range(nfunctions):
-            fr.readline()
-            fr.readline()
-            line = fr.readline()
-            potentials_ = np.array(line.split(" "), dtype=float)
-            functions[i].setPotential(potentials_)
-        self.functions = functions
 
     cpdef void setEvidence(self, int var, int val):
         self.variables[var].setValue(val)
